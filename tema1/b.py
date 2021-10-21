@@ -1,8 +1,5 @@
 from Crypto.Cipher import AES
 import socket
-
-
-# vectorul de initializare
 IV = b"2406170719992000"
 HOST = "127.0.0.1"
 PORT = 65432
@@ -44,23 +41,22 @@ class nodeB:
 
 
   def decrypt(self, block):
+    #CFB
     if self.mode == b'cfb':
       plain = int.from_bytes(self.private_key, byteorder="big") ^ int.from_bytes(self.operator, byteorder="big")
       plain = int.from_bytes(block, byteorder="big") ^ plain
       self.set_operator(plain.to_bytes(max(len(self.operator), len(block)), byteorder="big"))
       plain = plain.to_bytes(max(len(self.operator), len(block)), byteorder="big")
-    else: # ecb
+    #ECB
+    else:
       plain = int.from_bytes(self.private_key, byteorder="big") ^ int.from_bytes(block, byteorder="big")
       plain = plain.to_bytes(max(len(self.operator), len(block)), byteorder="big")
       self.set_operator(block)
-
     return self._unpad(plain).decode("utf-8")
 
 
 if __name__ == "__main__":
   global node_B
-
-  # comunicare KEY MANAGER
   with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((HOST, PORT))
     public_key = s.recv(1024)
@@ -70,8 +66,7 @@ if __name__ == "__main__":
 
     s.shutdown(socket.SHUT_RDWR)
     s.close()
-  
-  # comm NODE A
+
   with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.bind((HOST, PORT2))
     s.listen()
@@ -80,30 +75,20 @@ if __name__ == "__main__":
     with conn:
       print("Node A", addr, "connected.")
       data = conn.recv(1024)
-
       start_communication = ""
       while start_communication != "ok":
         start_communication = input("Write `ok` to start <<< ")
       conn.sendall(b"ok")
-
       print("2. Communication mode from A:", data, "\n")
       node_B.set_communication_mode(data)
-
       print("3. Encrypted key from A:", "\n")
       data = conn.recv(1024)
       node_B.set_private_key(data)
       node_B.set_operator(IV)
-
       plain_text = ""
-
       while True:
         data = conn.recv(1024)
-
         if not data:
           break
-
-        # decriptez de la A
         plain_text += str(node_B.decrypt(data))
-
-      # afisez tot
       print("\nPlain text =", plain_text, "\n")
